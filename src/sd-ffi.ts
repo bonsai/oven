@@ -72,7 +72,7 @@ function resolveBackend(): BackendStatus {
   } catch (error) {
     cachedBackend = {
       mode: "mock",
-      warning: `Failed to load backend library: ${(error as Error).message}. Using mock output instead.`,
+      warning: `Failed to load backend library: ${error instanceof Error ? error.message : String(error)}. Using mock output instead.`,
     };
   }
 
