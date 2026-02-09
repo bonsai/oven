@@ -1,7 +1,10 @@
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { dlopen, FFIType, suffix } from "bun:ffi";
+type DenoFFI = {
+  symbols: Record<string, unknown>;
+  close: () => void;
+};
 import type { GenerateRequest, GenerateResult } from "./types";
 
 const DEFAULT_OUTPUT_DIR = "output";
@@ -14,11 +17,16 @@ type BackendStatus =
 let cachedBackend: BackendStatus | null = null;
 
 function resolveLibraryPath(): string {
-  const envPath = process.env.SD_DLL_PATH?.trim();
+  const envPath = Deno.env.get("SD_DLL_PATH")?.trim();
   if (envPath) {
     return envPath;
   }
-  const ext = suffix === "dll" ? ".dll" : suffix === "dylib" ? ".dylib" : ".so";
+  const ext =
+    Deno.build.os === "windows"
+      ? ".dll"
+      : Deno.build.os === "darwin"
+        ? ".dylib"
+        : ".so";
   return join("native", `stable-diffusion${ext}`);
 }
 
@@ -37,24 +45,25 @@ function resolveBackend(): BackendStatus {
   }
 
   try {
-    dlopen(libPath, {
+    const lib = Deno.dlopen(libPath, {
       new_sd_ctx: {
-        args: [FFIType.cstring, FFIType.i32, FFIType.i32],
-        returns: FFIType.ptr,
+        parameters: ["pointer", "i32", "i32"],
+        result: "pointer",
       },
       txt2img: {
-        args: [FFIType.ptr, FFIType.cstring],
-        returns: FFIType.ptr,
+        parameters: ["pointer", "pointer"],
+        result: "pointer",
       },
       free_sd_ctx: {
-        args: [FFIType.ptr],
-        returns: FFIType.void,
+        parameters: ["pointer"],
+        result: "void",
       },
       free_sd_image: {
-        args: [FFIType.ptr],
-        returns: FFIType.void,
+        parameters: ["pointer"],
+        result: "void",
       },
-    });
+    }) as DenoFFI;
+    lib.close();
     cachedBackend = {
       mode: "ffi",
       warning:

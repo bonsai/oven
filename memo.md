@@ -1,8 +1,8 @@
-# SD-DLL-API - Bun + Hono + stable-diffusion.cpp DLL
+# SD-DLL-API - Deno + Hono + stable-diffusion.cpp DLL
 
-Bun + Hono で超軽量APIサーバーを立て、**stable-diffusion.cpp** のDLL（C++バックエンド）をBunのFFIで直接呼び出してStable Diffusion（SD/Fluxなど）をローカルで爆速生成するプロジェクト。
+Deno + Hono で超軽量APIサーバーを立て、**stable-diffusion.cpp** のDLL（C++バックエンド）をDenoのFFIで直接呼び出してStable Diffusion（SD/Fluxなど）をローカルで爆速生成するプロジェクト。
 
-- **TypeScript** 統一（Bunネイティブ）
+- **TypeScript** 統一（Denoネイティブ）
 - **モバイルファースト**（PWA対応可能）
 - **量産特化**：JSONLでバッチプロンプト投入 → 並列/逐次生成
 - **Python不要**（torch/diffusers 依存ゼロ）
@@ -10,8 +10,8 @@ Bun + Hono で超軽量APIサーバーを立て、**stable-diffusion.cpp** のDL
 
 ## 特徴
 
-- 起動が爆速（Bunの軽さ）
-- stable-diffusion.cpp DLL を Bun:ffi で直接呼ぶ → オーバーヘッドほぼゼロ
+- 起動が爆速（Denoの軽さ）
+- stable-diffusion.cpp DLL を Deno.dlopen で直接呼ぶ → オーバーヘッドほぼゼロ
 - Flux.1 schnell / SDXL-Turbo / LCM 系で1枚数秒レベルの量産が可能
 - スマホブラウザ/PWAからアクセス → ホーム画面追加でネイティブアプリ風
 - JSONLアップロードで数百〜数千枚の自動生成
@@ -21,7 +21,7 @@ Bun + Hono で超軽量APIサーバーを立て、**stable-diffusion.cpp** のDL
 - OS: Windows 10/11（DLLビルドが一番安定）、Linux、macOS（Metal）
 - GPU: NVIDIA（CUDA）、AMD（Vulkan/hipBLAS）、Apple Silicon（Metal）
 - RAM: 16GB以上（モデルによる）
-- Bun: 1.1.x 以上
+- Deno: 1.40.x 以上
 - stable-diffusion.cpp: 最新master（leejet/stable-diffusion.cpp）
 
 ## クイックスタート
@@ -44,17 +44,16 @@ ninja
 # python convert.py --outfile models/sd-v1-5.gguf models/sd-v1-5.safetensors
 注意: Windowsの場合、pre-builtバイナリ（cudart-sd-bin-win-*.zip など）をGitHub Releasesから落として展開してもOK。
 2. このプロジェクトをセットアップ
-Bashbun create hono sd-dll-api
+deno init sd-dll-api
 cd sd-dll-api
 
-# 依存インストール
-bun add hono @hono/zod-validator zod
-bun add -D @types/bun
+# 依存インストール（npm互換）
+deno add npm:hono
 
 # stable-diffusion.dll をプロジェクト直下に配置（またはパス指定）
 # 例: ./native/stable-diffusion.dll
 3. 起動
-Bashbun run dev
+deno task dev
 # → http://localhost:3000
 4. モバイルで試す
 
@@ -62,7 +61,7 @@ Bashbun run dev
 JSONLファイルをスマホからアップロード → 量産スタート
 
 プロジェクト構造
-textsd-dll-api/
+sd-dll-api/
 ├── src/
 │   └── index.ts          # Hono APIサーバー
 ├── native/
@@ -70,7 +69,7 @@ textsd-dll-api/
 ├── public/
 │   └── index.html        # 簡易フロント（またはVite + React TSと連携）
 ├── prompts.jsonl         # 量産用サンプルJSONL
-├── bunfig.toml
+├── deno.json
 └── README.md
 APIエンドポイント例
 
@@ -88,8 +87,10 @@ JSONLファイルアップロードでバッチ生成jsonl{"prompt": "cyberpunk 
 {"prompt": "beautiful anime girl", "seed": 123}
 レスポンス: 生成画像を ./output/ に保存し、パス or base64 を返す
 
-Bun:ffi でDLL呼び出し例（src/sd-ffi.ts）
-TypeScriptimport { dlopen, FFIType, suffix, CString } from 'bun:ffi'
+Deno.dlopen でDLL呼び出し例（src/sd-ffi.ts）
+TypeScript const lib = Deno.dlopen('./native/stable-diffusion.dll', {
+  new_sd_ctx: { parameters: ['pointer', 'i32', 'i32'], result: 'pointer' },
+})
 
 const libPath = `./native/stable-diffusion${suffix === 'dll' ? '.dll' : suffix}`
 
@@ -114,11 +115,11 @@ export function generateImage(prompt: string): string {
   // ...
   return '/output/generated.png'
 }
-注意: 実際の関数定義は stable-diffusion.h を確認し、ポインタ/構造体の扱いに注意（Bun:ffiは実験的）。
+注意: 実際の関数定義は stable-diffusion.h を確認し、ポインタ/構造体の扱いに注意。
 量産Tips
 
 Turbo/Lightning/Schnellモデル推奨（steps=4〜8）
-並列生成: BunのWorker Threads + Promise.allSettled
+並列生成: DenoのWorker Threads + Promise.allSettled
 進捗: WebSocketエンドポイント追加（hono ws）
 保存: output/ にタイムスタンプ付きPNG保存（メタデータにプロンプト埋め込み）
 

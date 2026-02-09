@@ -1,5 +1,4 @@
-import { Hono } from "hono";
-import { serve } from "bun";
+import { Hono } from "npm:hono";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { generateImage } from "./sd-ffi";
@@ -99,11 +98,10 @@ app.post("/batch", async (c) => {
 
 await mkdir(join(process.cwd(), "output"), { recursive: true });
 
-serve({
-  fetch: app.fetch,
-  port: Number(process.env.PORT ?? 3000),
-});
+Deno.serve({
+  port: Number(Deno.env.get("PORT") ?? 3000),
+}, app.fetch);
 
 console.log("SD DLL API listening", {
-  port: Number(process.env.PORT ?? 3000),
+  port: Number(Deno.env.get("PORT") ?? 3000),
 });
